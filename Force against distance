@@ -1,0 +1,39 @@
+#importing stuff and setting up
+from __future__ import print_function
+import sys
+import Morse
+import numpy as np
+from ase import Atoms
+from ase.units import eV, Ang, GPa
+from matplotlib import pyplot as plt
+sys.path.append(r'files')
+calc = Morse.MorsePotential()
+
+
+#program
+d = 1*Ang # setting a distance to use later
+distances = np.linspace(2,10, num = 40) # array of 20 numbers evenly spaced between 2 and 10
+
+def morseForceCalculator(a):#function takes in the atoms as an argument
+    if len(a) != 2:
+        return False # deliverable says only calculates between two atoms
+    else:
+        force = (a.get_forces())[1][2]
+        xDistance = a.positions[0][0] - a.positions[1][0]
+        yDistance = a.positions[0][1] - a.positions[1][1]
+        zDistance = a.positions[0][2] - a.positions[1][2]
+        totalDistance = (xDistance**2 + yDistance**2 + zDistance**2)**0.5
+    return(force,totalDistance)
+
+forces = []#stores the data to be plotted
+for i in range(len(distances)): # for each distance in the array
+    a = Atoms('2Cu', positions=[(0., 0., 0.), (0., 0., d*(distances[i]))]) #creating an array of 2 atoms, each with x,y,z positions
+    a.set_calculator(calc)# setting our calculator function for these atoms
+    force,totalDistance = morseForceCalculator(a)
+    forces.append([force])
+
+plt.title("Force against distance") 
+plt.xlabel("distance in angstroms") 
+plt.ylabel("Force") 
+plt.plot(distances,forces) 
+plt.show()
