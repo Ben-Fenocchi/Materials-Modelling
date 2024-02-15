@@ -1,0 +1,86 @@
+  #importing stuff and setting up
+from __future__ import print_function
+import sys
+import Morse
+import numpy as np
+from ase import Atoms
+from ase.units import eV, Ang, GPa
+from matplotlib import pyplot as plt
+sys.path.append(r'files')
+from ase.build import bulk
+
+# between 0 and 15% strains
+hydroStrains = np.linspace(-5,15,num = 100)
+
+#creates a crystal structure
+cu = bulk("Cu", "fcc", a=3.6, cubic=True)
+originalVolume = cu.get_volume()#volume
+atomsPerUnitCell = cu.get_global_number_of_atoms()#number of atoms
+
+
+#calculates the volume per atom for each hydrostatic strain value
+volumesPerAtom = []
+for x in hydroStrains:
+    newVolume = ((1-x/100)**3)*originalVolume
+    volumesPerAtom.append( (newVolume/atomsPerUnitCell) )
+
+
+#Calculating Pressure and potential energy per atom
+def strainUnitCell(strainPercentage):
+    #setting up the strained cell
+    cu = bulk("Cu", "fcc", a=3.6, cubic=True) # resetting the cell for the next strain
+    cell = cu.get_cell()
+    cell *= (1 - strainPercentage/100)# minus as hydrostatic strain is compressive
+    cu.set_cell(cell, scale_atoms=True)#scales position of the atoms with the cell boundaries
+    cu.set_calculator(calc)#setting the calculator
+
+    #calculating P.E per atom
+    potentialEnergyPerAtom = cu.get_potential_energy()/atomsPerUnitCell
+    
+    #calculating the pressure per atom
+    #pressure is -1/3 the trace of the stress matrix as said in instructions above
+    pressure = -1/3 * (np.trace(cu.get_stress(voigt=False)))
+    return pressure,potentialEnergyPerAtom
+
+
+#calculating this around the equilibrium volume
+def calculateBulkModulus(volumes,pressures):
+    
+    total = 0
+    numberToAverage = 3 #calculate an average of an amount of dP/dV's around the equilibrium volume
+    equillibriumIndex = 24 
+    for i in range(numberToAverage):
+        dP = pressures[(equillibriumIndex+i)+1] - pressures[(equillibriumIndex+ i)]
+        dV = volumesPerAtom[(equillibriumIndex+i)+1] - volumesPerAtom[( equillibriumIndex+i)]
+        V = (volumesPerAtom[(equillibriumIndex+ i)] + volumesPerAtom[( equillibriumIndex+i)+1])/2
+        total += V*(dP / dV)
+    k = - total/numberToAverage
+    k = k / GPa
+    return(k)
+
+
+
+pressures = []
+potentials = []
+for strain in hydroStrains:
+    pressure,potentialEnergy = strainUnitCell(strain)
+    pressures.append(pressure)
+    potentials.append(potentialEnergy)
+    
+print(calculateBulkModulus(volumesPerAtom,pressures),"GPa")
+print("This is just under 10% off the experimental value")
+print("This is close to that calculated with the equation of state method in code box below")
+
+for i in range(len(pressures)):
+    pressures[i] = (pressures[i])/GPa 
+plt.title("Pressure variations with volume change due to hydrostatic strain") 
+plt.xlabel("volume per atom/A^3") 
+plt.plot(volumesPerAtom,pressures, label = "Pressures/GPa") 
+plt.legend()
+plt.show()
+
+plt.title("Potential variations with volume change due to hydrostatic strain") 
+plt.xlabel("volume per atom/A^3") 
+plt.plot(volumesPerAtom,potentials, label = "potentials/eV") 
+plt.show()
+
