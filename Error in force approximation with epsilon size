@@ -1,0 +1,61 @@
+#importing stuff and setting up
+from __future__ import print_function
+import sys
+import Morse
+import numpy as np
+from ase import Atoms
+from ase.units import eV, Ang, GPa
+from matplotlib import pyplot as plt
+sys.path.append(r'files')
+
+#program
+a = Atoms('2Cu', positions=[(0., 0., 0.), (0., 0., 3*Ang)])
+a.set_calculator(calc)# setting our calculator function for these atoms
+actualForce = a.get_forces()[1][2] # 3 element array for each atom (x,y & z forces), but we only want z force for one atom
+
+epsilons =np.linspace(1e-10,1,num = 1000)
+
+#calculates the force based off of the theory
+def calculateTheoreticalForce(a,e):#a is the atoms, e is the small differential displacement
+    energy1 = a.get_potential_energy() # energy before moving small finite distance
+
+    #updating the position by small change e
+    e = e*Ang
+    newPositions = a.get_positions()
+    newPositions[1][2] = newPositions[1][2]+e
+    a.set_positions(newPositions)
+
+    energy2 = a.get_potential_energy(0)# energy after moving small finite distance
+    gradEnergy = (energy2 - energy1)/e
+    return(-1*gradEnergy)
+
+#function to test that force returned by actual force is indeed similar to that calculated using theory (epsilon in this case chosen to be 0.000001)
+def unitTest(a):
+    actualForce = a.get_forces()[1][2]
+    theoreticalForce = calculateTheoreticalForce(a,0.000001)
+    if abs(actualForce - theoreticalForce)<0.000001:
+        print("Theory is valid according to the unit test")
+    else:
+        print("Theory invalid")
+
+#getting plot for error with different values of epsilon
+errors = []
+for e in epsilons:
+    theoreticalForce = calculateTheoreticalForce(a,e)
+    error = actualForce - theoreticalForce
+    errors.append(abs(error))
+    a.set_positions([(0., 0., 0.), (0., 0., 3*Ang)])
+print()
+
+plt.title("error in force calculation with epsilon size") 
+plt.xlabel("epsilon/Angstrom")
+#plt.xscale("log") 
+plt.ylabel("error") 
+plt.plot(epsilons,errors) 
+plt.show()
+
+unitTest(a)
+print("if epsilon is too small it is difficult to store, Computer cant handle calculations with super small numbers, it would just set epsilon to zero")
+print("Computer would think that the atom hasnt even been moved and therefore think force is zero and so is epsilon, error is also therefore zero")
+#print("For large values of epsilon the error plateaus as  grad energy is little for large distances")
+
