@@ -1,0 +1,77 @@
+#-------------------------------TASK 2---------------------------------------------------#
+#importing stuff and setting up
+from __future__ import print_function
+import sys
+import Morse
+import numpy as np
+from ase import Atoms
+from ase.units import eV, Ang, GPa
+from matplotlib import pyplot as plt
+sys.path.append(r'files')
+from ase.build import bulk
+
+
+def locatePoisson(model,sideLength):
+    i,j,k = 0,0,0
+    #initialising xstrain variable
+    
+    yzStrain = 0.01# intial 1% strain for y and z
+    xStrain = 0 # no strain in x to start
+
+    #initialising yzStress variable (to more than one so we enter the while loops)
+    #stress in y and z direction same by symmetry
+    yzStress = 1
+    #straining the model
+    model.cell[0][0], model.cell[1,1], model.cell[2,2] =(1+xStrain)*sideLength ,(yzStrain+1) * sideLength, (yzStrain+1)*sideLength
+
+    #slowly increasing the x stress (by increasing the x strain) untill the yz stress is zero
+    #3 while loops that have different steps in strain to find the poisson value quicker
+
+    #while our stress in the yz directions arent zero
+    #strain the x direction a little bit more
+    #check if the yz strains are now zero
+    while abs(yzStress)> 5e-4:
+        i +=1
+        model.cell[0][0] = (1- i*1e-3) * sideLength
+        yzStress = model.get_stress(voigt = False)[1][1]
+
+        print(yzStress)
+        if i>500:
+           raise ValueError("Value not found")
+    print("Stage 1 Complete")
+    #upadting to our new x strain
+
+    xStrain = xStrain - i*1e-3
+    
+    while abs(yzStress)> 5e-6:
+        j +=1
+        model.cell[0,0] = (xStrain + 1 - j*1e-5) * sideLength
+        yzStress = model.get_stress(voigt = False)[1][1]
+        if j %10 == 0:
+            print(yzStress)
+        if j>500:
+           raise ValueError("Value not found")
+   
+    xStrain = xStrain -  j * 1e-5
+    print("Stage 2 complete")
+
+    while abs(yzStress)> 2e-8:
+        k +=1
+        model.cell[0,0] = (xStrain + 1 + k*1e-8) * sideLength
+        yzStress = (model.get_stress(voigt = False)[1][1])
+        if k %10 == 0:
+            print(yzStress)
+        if k>500:
+            raise ValueError("Value not found")
+    xStrain += k * 1e-8
+
+    poisson = (yzStrain/abs(xStrain))
+    return poisson
+
+sideLength = (11.692*4)**(1/3) # vo from above in the birchmaugen, then multiplied by four for proper cell, and cube rooted
+model = bulk("Cu", "fcc", a=sideLength, cubic=True)
+model.set_calculator(calc) 
+
+print(locatePoisson(model,sideLength))
+
+    
