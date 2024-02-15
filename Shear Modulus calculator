@@ -1,0 +1,37 @@
+#-------------------------------TASK 1---------------------------------------------------#
+#importing stuff and setting up
+from __future__ import print_function
+import sys
+import Morse
+import numpy as np
+from ase import Atoms
+from ase.units import eV, Ang, GPa
+from matplotlib import pyplot as plt
+sys.path.append(r'files')
+from ase.build import bulk
+
+
+def getShearModulus(x,l,strain):
+    #modifying the x component of the lattice vector in the y direction in order to apply SHEAR strain
+    
+    x.cell[0][1] = strain* l
+    #x.set_cell(cell, scale_atoms=True)#updates the cell with new lattice vectors and also scales atoms with the new cell
+    
+
+
+    stress = x.get_stress(voigt = False)
+    # the times 2 is as ASE uses mathematical strain and not shear strain
+    shearModulus = abs(stress[0][1])/(strain*GPa*2) # (stress in the x direction of the y vector)/ strain    
+    return shearModulus
+
+##############################################   PROGRAM BEGINS     ######################################
+
+l = 3.6
+strain = 0.01
+
+
+cu = bulk("Cu", "fcc", a=3.6, cubic=True)
+cu.set_calculator(calc)
+shearModulus = getShearModulus(cu,l,strain)
+
+print("Shear Modulus:",shearModulus,"GPa")
